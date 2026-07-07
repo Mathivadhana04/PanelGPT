@@ -1,5 +1,5 @@
-# Run stage using a slim OpenJDK 17 runtime and pre-compiled JAR
-FROM openjdk:17-jdk-slim
+# Run stage using Eclipse Temurin JRE 17 (official OpenJDK replacement)
+FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 COPY target/panelgpt-backend-1.0.0.jar app.jar
 EXPOSE 8080
