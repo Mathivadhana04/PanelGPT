@@ -1,0 +1,40 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/panelgpt?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
+    username: ${DB_USER:root}
+    password: ${DB_PASS:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: UTC
+
+ollama:
+  base-url: ${OLLAMA_URL:http://localhost:11434}
+  model: ${OLLAMA_MODEL:llama3}
+  timeout: 120
+
+jwt:
+  secret: ${JWT_SECRET:panelgpt-super-secret-key-change-this-in-production-min-256-bits-abc123}
+  access-expiry: 900000
+  refresh-expiry: 604800000
+
+cors:
+  allowed-origins: ${CORS_ORIGIN:http://localhost:5173}
+
+logging:
+  level:
+    com.panelgpt: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN

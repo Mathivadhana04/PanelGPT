@@ -1,0 +1,41 @@
+# Root .gitignore for PanelGPT Project
+
+# Java / Spring Boot (Backend)
+backend/target/
+backend/.env
+backend/*.log
+backend/.idea/
+backend/*.class
+backend/*.jar
+backend/*.war
+backend/*.ear
+backend/.settings/
+backend/.project/
+backend/.classpath/
+backend/bin/
+
+# React / Node.js (Frontend)
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+frontend/.eslintcache
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# System & IDE Temporary Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.tmp
+*.bak
