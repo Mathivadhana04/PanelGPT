@@ -34,8 +34,8 @@ Built as a Final Year Major Project, it demonstrates modern clean architecture, 
 ## 🛠️ TECH STACK & REQUIREMENTS
 
 *   **Frontend:** React.js, Vite, Tailwind CSS v3, Framer Motion, Axios
-*   **Backend:** Spring Boot 3.x, Spring Security 6.x, Spring Data JPA, Lombok, Jakarta Validation
-*   **Database:** MySQL 8.x
+*   **Backend:** Spring Boot 3.2.0, Spring Security 6.x, Spring Data JPA, Lombok, Jakarta Validation
+*   **Database:** MySQL 8.0.46
 *   **AI Engine:** Ollama (Local) running `llama3` (8B) model
 *   **Auth:** JWT (Access Token in-memory, Refresh Token in HttpOnly Secure Cookie) + BCrypt
 
