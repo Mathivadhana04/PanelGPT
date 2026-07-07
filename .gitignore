@@ -2,6 +2,7 @@
 
 # Java / Spring Boot (Backend)
 backend/target/
+!backend/target/*.jar
 backend/.env
 backend/*.log
 backend/.idea/
