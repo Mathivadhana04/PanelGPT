@@ -25,6 +25,9 @@ ollama:
   model: ${OLLAMA_MODEL:llama3}
   timeout: 120
 
+groq:
+  api-key: ${GROQ_API_KEY:}
+
 jwt:
   secret: ${JWT_SECRET:panelgpt-super-secret-key-change-this-in-production-min-256-bits-abc123}
   access-expiry: 900000

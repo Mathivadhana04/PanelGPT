@@ -1,7 +1,7 @@
 # Root .gitignore for PanelGPT Project
 
 # Java / Spring Boot (Backend)
-backend/target/
+backend/target/*
 !backend/target/*.jar
 backend/.env
 backend/*.log

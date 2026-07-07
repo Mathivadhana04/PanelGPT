@@ -23,7 +23,8 @@ export const useSSE = () => {
     dispatch({ type: 'DEBATE_START' });
 
     const token = getToken();
-    const url = `/api/debate/stream?topic=${encodeURIComponent(topic)}`;
+    const baseURL = import.meta.env.VITE_API_URL || '/api';
+    const url = `${baseURL}/debate/stream?topic=${encodeURIComponent(topic)}`;
 
     try {
       const response = await fetch(url, {

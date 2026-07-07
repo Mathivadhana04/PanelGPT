@@ -29,6 +29,9 @@ public class OllamaService {
     @Value("${ollama.timeout-seconds:90}")
     private int timeoutSeconds;
 
+    @Value("${groq.api-key:}")
+    private String groqApiKey;
+
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build();
@@ -99,6 +102,20 @@ public class OllamaService {
             "TOPIC: \"" + topic + "\"\n\n" +
             "YOUR FACT:";
 
+        // Use Groq if API key is present
+        if (groqApiKey != null && !groqApiKey.isBlank()) {
+            try {
+                String result = generateGroqResponse(prompt);
+                // Post-process
+                result = result.replaceAll("(?i)^(As a[^:]+:|YOUR FACT:|FACT:|[A-Z][a-z]+ [A-Z][a-z]+:)\\s*", "");
+                result = firstSentence(result);
+                log.info("Round {} | {} (Groq) → '{}'", round, personaId, result);
+                return result;
+            } catch (Exception e) {
+                log.warn("Groq request failed, falling back to local Ollama: {}", e.getMessage());
+            }
+        }
+
         ObjectNode requestBody = objectMapper.createObjectNode();
         requestBody.put("model", model);
         requestBody.put("prompt", prompt);
@@ -133,8 +150,47 @@ public class OllamaService {
         // Keep only first sentence
         result = firstSentence(result);
 
-        log.info("Round {} | {} → '{}'", round, personaId, result);
+        log.info("Round {} | {} (Ollama) → '{}'", round, personaId, result);
         return result;
+    }
+
+    private String generateGroqResponse(String prompt) throws IOException, InterruptedException {
+        ObjectNode requestBody = objectMapper.createObjectNode();
+        // llama3-8b-8192 is fast and free
+        requestBody.put("model", "llama3-8b-8192");
+        
+        var messages = objectMapper.createArrayNode();
+        var userMsg = objectMapper.createObjectNode();
+        userMsg.put("role", "user");
+        userMsg.put("content", prompt);
+        messages.add(userMsg);
+        requestBody.set("messages", messages);
+        
+        requestBody.put("temperature", 0.6);
+        requestBody.put("max_tokens", 80);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.groq.com/openai/v1/chat/completions"))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + groqApiKey.trim())
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
+                .timeout(Duration.ofSeconds(timeoutSeconds))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() != 200) {
+            log.error("Groq API error (status {}): {}", response.statusCode(), response.body());
+            throw new IOException("Groq API error: " + response.statusCode());
+        }
+
+        JsonNode json = objectMapper.readTree(response.body());
+        String text = json.path("choices").path(0).path("message").path("content").asText().trim();
+        
+        if (text.startsWith("\"") && text.endsWith("\"")) {
+            text = text.substring(1, text.length() - 1);
+        }
+        return text;
     }
 
     public String generateSummary(String topic, java.util.List<String> facts) throws IOException, InterruptedException {
@@ -155,6 +211,17 @@ public class OllamaService {
             "TOPIC: \"" + topic + "\"\n" +
             "POINTS DISCUSSED:\n" + factsText.toString() + "\n" +
             "SUMMARY BULLET POINTS:";
+
+        // Use Groq if API key is present
+        if (groqApiKey != null && !groqApiKey.isBlank()) {
+            try {
+                String summary = generateGroqSummary(prompt);
+                log.info("Generated summary using Groq cloud model.");
+                return summary;
+            } catch (Exception e) {
+                log.warn("Groq summary failed, falling back to local Ollama: {}", e.getMessage());
+            }
+        }
 
         ObjectNode requestBody = objectMapper.createObjectNode();
         requestBody.put("model", model);
@@ -183,6 +250,39 @@ public class OllamaService {
 
         JsonNode json = objectMapper.readTree(response.body());
         return json.path("response").asText().trim();
+    }
+
+    private String generateGroqSummary(String prompt) throws IOException, InterruptedException {
+        ObjectNode requestBody = objectMapper.createObjectNode();
+        requestBody.put("model", "llama3-8b-8192");
+        
+        var messages = objectMapper.createArrayNode();
+        var userMsg = objectMapper.createObjectNode();
+        userMsg.put("role", "user");
+        userMsg.put("content", prompt);
+        messages.add(userMsg);
+        requestBody.set("messages", messages);
+        
+        requestBody.put("temperature", 0.5);
+        requestBody.put("max_tokens", 150);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.groq.com/openai/v1/chat/completions"))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + groqApiKey.trim())
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
+                .timeout(Duration.ofSeconds(timeoutSeconds))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() != 200) {
+            log.error("Groq API Summary error (status {}): {}", response.statusCode(), response.body());
+            throw new IOException("Groq API error: " + response.statusCode());
+        }
+
+        JsonNode json = objectMapper.readTree(response.body());
+        return json.path("choices").path(0).path("message").path("content").asText().trim();
     }
 
     private String firstSentence(String text) {

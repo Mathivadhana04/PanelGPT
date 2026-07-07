@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // ─── Axios Instance ──────────────────────────────────────────────
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
   withCredentials: true, // for HttpOnly refresh token cookie
   headers: { 'Content-Type': 'application/json' },
 });
@@ -40,6 +40,8 @@ const processQueue = (error, token = null) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    const originalRequest = error.config;
+    if (!originalRequest) return Promise.reject(error);
     const isAuthUrl = originalRequest.url?.includes('/auth/');
 
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthUrl) {
@@ -56,7 +58,8 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const { data } = await axios.post('/api/auth/refresh', {}, { withCredentials: true });
+        const baseURL = import.meta.env.VITE_API_URL || '/api';
+        const { data } = await axios.post(`${baseURL}/auth/refresh`, {}, { withCredentials: true });
         const newToken = data.accessToken;
         setToken(newToken);
         api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
