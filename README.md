@@ -62,7 +62,7 @@ Create a `.env` file inside the `backend` directory (see `backend/.env.example` 
 ### Prerequisites
 1.  **Java SDK 17** or higher
 2.  **Node.js 18+** & npm
-3.  **MySQL Server 8.0+**
+3.  **MySQL Server 8.0.46
 4.  **Ollama** installed and running (`ollama serve`)
     *   Pull the llama3 model: `ollama pull llama3`
 
