@@ -1,18 +1,22 @@
 import { useCallback, useRef } from 'react';
-import { getToken } from '../services/api';
+import api from '../services/api';
 import { useDebate } from '../context/DebateContext';
 import { debateService } from '../services/debateService';
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
- * useSSE — SSE hook using fetch + ReadableStream (supports Authorization header)
- * Falls back to EventSource-compatible parsing
+ * useSSE — Polling-based debate engine.
+ * Replaces the SSE stream (which was broken on Render's free-tier proxy).
+ * Each round calls POST /debate/generate-round to get all 6 persona responses
+ * in parallel from the backend, then animates them one-by-one on the frontend.
  */
 export const useSSE = () => {
   const { dispatch } = useDebate();
   const abortControllerRef = useRef(null);
 
   const startDebate = useCallback(async (topic) => {
-    // Cancel any existing stream
+    // Cancel any existing debate
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -22,66 +26,67 @@ export const useSSE = () => {
 
     dispatch({ type: 'DEBATE_START' });
 
-    const token = getToken();
-    const baseURL = import.meta.env.VITE_API_URL || '/api';
-    const url = `${baseURL}/debate/stream?topic=${encodeURIComponent(topic)}`;
+    let round = 0;
 
     try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-        },
-        signal: controller.signal,
-        credentials: 'include',
-      });
+      while (!controller.signal.aborted) {
+        round++;
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+        // Fetch one full round from backend (all 6 personas in parallel server-side)
+        const response = await api.post(
+          `/debate/generate-round?topic=${encodeURIComponent(topic)}&round=${round}`,
+          {},
+          { signal: controller.signal }
+        );
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+        if (controller.signal.aborted) break;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        const { messages } = response.data;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        // Animate messages one-by-one with typing indicator
+        for (const message of messages) {
+          if (controller.signal.aborted) break;
 
-        let eventName = null;
-        let eventData = null;
+          // Show typing indicator for this persona
+          dispatch({ type: 'SET_TYPING', payload: message.personaId });
+          await delay(600);
 
-        for (const line of lines) {
-          if (line.startsWith('event:')) {
-            eventName = line.slice(6).trim();
-          } else if (line.startsWith('data:')) {
-            eventData = line.slice(5).trim();
-          } else if (line === '' && eventName && eventData) {
-            // Process complete event
-            try {
-              const parsed = JSON.parse(eventData);
-              handleSSEEvent(eventName, parsed, dispatch);
-            } catch (e) {
-              console.warn('Failed to parse SSE event data:', eventData);
-            }
-            eventName = null;
-            eventData = null;
-          }
+          if (controller.signal.aborted) break;
+
+          // Reveal the message
+          dispatch({
+            type: 'ADD_MESSAGE',
+            payload: {
+              id: message.id,
+              personaId: message.personaId,
+              personaName: message.personaName,
+              personaColor: message.personaColor,
+              content: message.content,
+              responseOrder: message.responseOrder,
+              timestamp: message.createdAt || new Date().toISOString(),
+            },
+          });
+
+          await delay(300);
         }
+
+        if (controller.signal.aborted) break;
+
+        // Brief pause between rounds so the user can read before the next round starts
+        await delay(1500);
       }
     } catch (err) {
-      if (err.name === 'AbortError' || controller.signal.aborted) {
-        console.log('Debate stream cancelled');
+      if (err.name === 'AbortError' || err.name === 'CanceledError' || controller.signal.aborted) {
+        console.log('Debate stopped by user.');
         return;
       }
-      console.error('SSE error:', err);
-      dispatch({ type: 'DEBATE_ERROR', payload: err.message });
+      console.error('Debate error:', err);
+      dispatch({ type: 'DEBATE_ERROR', payload: err.response?.data?.message || err.message });
+      return;
+    }
+
+    if (!controller.signal.aborted) {
+      dispatch({ type: 'DEBATE_COMPLETE' });
     }
   }, [dispatch]);
 
@@ -93,48 +98,10 @@ export const useSSE = () => {
     try {
       await debateService.stopDebate();
     } catch (err) {
-      console.warn('Failed to send backend stop signal:', err);
+      console.warn('Backend stop signal failed (non-critical):', err.message);
     }
     dispatch({ type: 'DEBATE_COMPLETE' });
   }, [dispatch]);
 
   return { startDebate, stopDebate };
 };
-
-function handleSSEEvent(eventName, data, dispatch) {
-  switch (eventName) {
-    case 'DEBATE_START':
-      // Already handled by startDebate
-      break;
-
-    case 'PERSONA_TYPING':
-      dispatch({ type: 'SET_TYPING', payload: data.personaId });
-      break;
-
-    case 'DEBATE_MESSAGE':
-      dispatch({
-        type: 'ADD_MESSAGE',
-        payload: {
-          id: data.id,
-          personaId: data.personaId,
-          personaName: data.personaName,
-          personaColor: data.personaColor,
-          content: data.content,
-          responseOrder: data.responseOrder,
-          timestamp: data.createdAt || new Date().toISOString(),
-        },
-      });
-      break;
-
-    case 'DEBATE_COMPLETE':
-      dispatch({ type: 'DEBATE_COMPLETE' });
-      break;
-
-    case 'DEBATE_ERROR':
-      dispatch({ type: 'DEBATE_ERROR', payload: data.message });
-      break;
-
-    default:
-      console.log('Unknown SSE event:', eventName, data);
-  }
-}

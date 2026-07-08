@@ -12,6 +12,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -45,10 +46,55 @@ public class DebateService {
             log.info("Explicit stop request received on backend for user: {}", userId);
             for (Future<Void> f : tracker.activeFutures) {
                 if (f != null && !f.isDone()) {
-                    f.cancel(true); // Interrupt thread immediately!
+                    f.cancel(true);
                 }
             }
         }
+    }
+
+    /**
+     * Generates one round of debate (all 6 personas in parallel) and returns a plain list.
+     * Used by the polling-based frontend instead of SSE streaming.
+     */
+    public List<DebateMessageDTO> generateRound(String topic, int round) {
+        List<String> personaIds = new ArrayList<>(OllamaService.PERSONAS.keySet());
+        List<DebateMessageDTO> results = new CopyOnWriteArrayList<>();
+        AtomicInteger order = new AtomicInteger(0);
+
+        List<CompletableFuture<Void>> futures = personaIds.stream().map(personaId ->
+            CompletableFuture.runAsync(() -> {
+                OllamaService.PersonaConfig persona = OllamaService.PERSONAS.get(personaId);
+                String content;
+                try {
+                    content = ollamaService.generateResponse(personaId, topic, round);
+                } catch (Exception e) {
+                    log.warn("Persona {} failed in round {}: {}", personaId, round, e.getMessage());
+                    content = "(thinking...)";
+                }
+                results.add(DebateMessageDTO.builder()
+                    .id(UUID.randomUUID().toString())
+                    .personaId(personaId)
+                    .personaName(persona.name())
+                    .personaColor(persona.color())
+                    .content(content)
+                    .responseOrder(order.getAndIncrement())
+                    .createdAt(LocalDateTime.now())
+                    .build());
+            }, executor)
+        ).collect(Collectors.toList());
+
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .get(90, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            log.warn("Round {} timed out after 90s, returning partial results", round);
+        } catch (Exception e) {
+            log.error("Round {} execution error: {}", round, e.getMessage());
+        }
+
+        return results.stream()
+            .sorted(Comparator.comparingInt(DebateMessageDTO::getResponseOrder))
+            .collect(Collectors.toList());
     }
 
     /**

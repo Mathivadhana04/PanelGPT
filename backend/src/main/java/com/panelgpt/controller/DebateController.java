@@ -15,6 +15,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/debate")
 @RequiredArgsConstructor
@@ -38,6 +40,20 @@ public class DebateController {
         log.info("Starting debate stream — topic: '{}', user: {}", topic, userDetails.getUsername());
         String userId = userService.getUserByEmail(userDetails.getUsername()).getId();
         return debateService.streamDebate(topic, userId);
+    }
+
+    /**
+     * Polling-based alternative to SSE — generates one round of debate (6 personas in parallel)
+     * and returns a JSON list. The frontend calls this repeatedly until stopped.
+     */
+    @PostMapping("/generate-round")
+    public ResponseEntity<?> generateRound(
+            @RequestParam String topic,
+            @RequestParam(defaultValue = "1") int round,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        log.info("Generating round {} for topic '{}', user: {}", round, topic, userDetails.getUsername());
+        List<com.panelgpt.dto.DebateMessageDTO> messages = debateService.generateRound(topic, round);
+        return ResponseEntity.ok(java.util.Map.of("messages", messages, "round", round));
     }
 
     @PostMapping("/save")
