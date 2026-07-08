@@ -8,19 +8,15 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASS:}}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      # Aiven free tier allows ~5 max connections — keep pool small
-      maximum-pool-size: 3
+      maximum-pool-size: 2
       minimum-idle: 1
-      # How long to wait for a connection from the pool
-      connection-timeout: 20000
-      # How long idle connections are kept (10 min)
+      connection-timeout: 30000
       idle-timeout: 600000
-      # Max lifetime of a connection (30 min — prevents stale connections)
       max-lifetime: 1800000
-      # Test connection health before using it
       connection-test-query: SELECT 1
-      # Keep connections alive to avoid Aiven's idle disconnect
       keepalive-time: 60000
+      # Don't fail startup if DB is unreachable — log the error instead
+      initialization-fail-timeout: -1
   jpa:
     hibernate:
       ddl-auto: update
@@ -55,3 +51,7 @@ logging:
     com.panelgpt: INFO
     org.springframework.security: WARN
     org.hibernate.SQL: WARN
+    # Show HikariCP and MySQL connection errors clearly
+    com.zaxxer.hikari: DEBUG
+    com.zaxxer.hikari.pool: DEBUG
+    com.mysql.cj: WARN
