@@ -60,6 +60,7 @@ public class DebateService {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
         AtomicBoolean stopped = new AtomicBoolean(false);
         List<Future<Void>> activeFutures = new CopyOnWriteArrayList<>();
+        List<String> personaIds = new ArrayList<>(OllamaService.PERSONAS.keySet());
 
         // Stop any currently running debate for this user first
         stopDebate(userId);
@@ -86,19 +87,25 @@ public class DebateService {
         emitter.onError(e -> cleanup.run());
         emitter.onCompletion(cleanup);
 
+        // ── Send DEBATE_START synchronously so Render proxy sees data immediately ──
+        // (if sent inside executor thread, nginx may close the "empty" stream first)
+        try {
+            sendEvent(emitter, "DEBATE_START", Map.of(
+                "topic", topic,
+                "totalPersonas", personaIds.size(),
+                "timestamp", LocalDateTime.now().toString()
+            ));
+        } catch (IOException e) {
+            log.warn("Could not send DEBATE_START event: {}", e.getMessage());
+            emitter.complete();
+            return emitter;
+        }
+
         executor.submit(() -> {
-            List<String> personaIds = new ArrayList<>(OllamaService.PERSONAS.keySet());
             AtomicInteger totalMessages = new AtomicInteger(0);
             int round = 0;
 
             try {
-                // ── Send start event ──────────────────────────────────────────
-                sendEvent(emitter, "DEBATE_START", Map.of(
-                    "topic", topic,
-                    "totalPersonas", personaIds.size(),
-                    "timestamp", LocalDateTime.now().toString()
-                ));
-
                 // ── Infinite rounds loop ──────────────────────────────────────
                 while (!stopped.get()) {
                     round++;
@@ -191,6 +198,11 @@ public class DebateService {
 
                     // Brief pause between rounds (300ms) to let frontend breathe
                     Thread.sleep(300);
+
+                    // Send SSE keepalive comment to prevent proxy idle timeout
+                    try {
+                        emitter.send(SseEmitter.event().comment("keepalive"));
+                    } catch (Exception ignored) {}
                 }
 
             } catch (InterruptedException e) {

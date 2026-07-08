@@ -4,6 +4,7 @@ import com.panelgpt.dto.SaveDebateRequest;
 import com.panelgpt.service.DebateService;
 import com.panelgpt.service.HistoryService;
 import com.panelgpt.service.UserService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +29,12 @@ public class DebateController {
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamDebate(
             @RequestParam String topic,
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletResponse response) {
+        // Disable nginx/Render proxy buffering so SSE events flow immediately
+        response.setHeader("X-Accel-Buffering", "no");
+        response.setHeader("Cache-Control", "no-cache");
+        response.setHeader("Connection", "keep-alive");
         log.info("Starting debate stream — topic: '{}', user: {}", topic, userDetails.getUsername());
         String userId = userService.getUserByEmail(userDetails.getUsername()).getId();
         return debateService.streamDebate(topic, userId);
