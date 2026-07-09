@@ -79,6 +79,23 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
     }
 
+    /**
+     * Public endpoint — resets password by verifying email + username match.
+     * No email server required; uses two-field identity verification.
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        try {
+            userService.resetPassword(request);
+            return ResponseEntity.ok(Map.of("message", "Password reset successfully. You can now log in."));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400).body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("Password reset failed: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("message", "Something went wrong. Please try again."));
+        }
+    }
+
     private void setRefreshTokenCookie(HttpServletResponse response, String userId, String email) {
         String refreshToken = jwtService.generateRefreshToken(email, userId);
         Cookie cookie = new Cookie("refreshToken", refreshToken);

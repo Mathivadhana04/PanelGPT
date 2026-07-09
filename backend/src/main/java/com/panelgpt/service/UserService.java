@@ -1,6 +1,7 @@
 package com.panelgpt.service;
 
 import com.panelgpt.dto.*;
+
 import com.panelgpt.model.User;
 import com.panelgpt.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -80,6 +81,20 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
         log.info("Password changed for user: {}", email);
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new IllegalArgumentException("No account found with that email address"));
+
+        if (!user.getUsername().equalsIgnoreCase(request.getUsername())) {
+            throw new IllegalArgumentException("Email and username do not match our records");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        log.info("Password reset for user: {}", request.getEmail());
     }
 
     public User getUserByEmail(String email) {
