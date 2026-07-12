@@ -156,8 +156,8 @@ public class OllamaService {
 
     private String generateGroqResponse(String prompt) throws IOException, InterruptedException {
         ObjectNode requestBody = objectMapper.createObjectNode();
-        // llama3-8b-8192 is fast and free
-        requestBody.put("model", "llama3-8b-8192");
+        // llama-3.1-8b-instant is fast and free
+        requestBody.put("model", "llama-3.1-8b-instant");
         
         var messages = objectMapper.createArrayNode();
         var userMsg = objectMapper.createObjectNode();
@@ -254,7 +254,7 @@ public class OllamaService {
 
     private String generateGroqSummary(String prompt) throws IOException, InterruptedException {
         ObjectNode requestBody = objectMapper.createObjectNode();
-        requestBody.put("model", "llama3-8b-8192");
+        requestBody.put("model", "llama-3.1-8b-instant");
         
         var messages = objectMapper.createArrayNode();
         var userMsg = objectMapper.createObjectNode();
