@@ -177,12 +177,7 @@ public class OllamaService {
                 .timeout(Duration.ofSeconds(timeoutSeconds))
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-        if (response.statusCode() != 200) {
-            log.error("Groq API error (status {}): {}", response.statusCode(), response.body());
-            throw new IOException("Groq API error: " + response.statusCode());
-        }
+        HttpResponse<String> response = executeGroqRequestWithRetry(request);
 
         JsonNode json = objectMapper.readTree(response.body());
         String text = json.path("choices").path(0).path("message").path("content").asText().trim();
@@ -274,15 +269,30 @@ public class OllamaService {
                 .timeout(Duration.ofSeconds(timeoutSeconds))
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-        if (response.statusCode() != 200) {
-            log.error("Groq API Summary error (status {}): {}", response.statusCode(), response.body());
-            throw new IOException("Groq API error: " + response.statusCode());
-        }
+        HttpResponse<String> response = executeGroqRequestWithRetry(request);
 
         JsonNode json = objectMapper.readTree(response.body());
         return json.path("choices").path(0).path("message").path("content").asText().trim();
+    }
+
+    private HttpResponse<String> executeGroqRequestWithRetry(HttpRequest request) throws IOException, InterruptedException {
+        int maxRetries = 3;
+        int delayMs = 1500;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                return response;
+            }
+            if (response.statusCode() == 429) {
+                log.warn("Groq API rate limit hit (429). Retrying in {}ms... (Attempt {}/{})", delayMs, attempt, maxRetries);
+                Thread.sleep(delayMs);
+                delayMs *= 2;
+                continue;
+            }
+            log.error("Groq API error (status {}): {}", response.statusCode(), response.body());
+            throw new IOException("Groq API error: " + response.statusCode());
+        }
+        throw new IOException("Groq API rate limit exceeded after " + maxRetries + " retries.");
     }
 
     private String firstSentence(String text) {
