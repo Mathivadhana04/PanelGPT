@@ -1,6 +1,6 @@
 # 💬 PanelGPT — Full-Stack AI Debate Simulator
 
-[![Live Demo](https://img.shields.io/badge/demo-online-brightgreen.svg?style=for-the-badge)] (https://vercel.com/lone-macaw/panel-gpt/6wv3VpWnCFMGSTaLrtwNebivft5Q)
+[![Live Demo](https://img.shields.io/badge/demo-online-brightgreen.svg?style=for-the-badge)] (https://panel-gpt.vercel.app/)
 [![Backend Status](https://img.shields.io/badge/backend-Render-indigo.svg?style=for-the-badge)](https://render.com)
 
 PanelGPT is a production-quality, full-stack AI web application that simulates a live panel debate among multiple distinct AI personalities. A user enters any topic, and a panel of AI personas (Scientist, Contrarian, Visionary, Philosopher, street advocate, satirist, etc.) each respond with their unique perspective in real-time.
@@ -11,7 +11,7 @@ Built as a Final Year Major Project, it demonstrates modern clean architecture, 
 
 ## 🚀 LIVE DEMO
 You can access the live running application here:
-👉 **[Launch PanelGPT Simulator](https://vercel.com/lone-macaw/panel-gpt/6wv3VpWnCFMGSTaLrtwNebivft5Q)**
+👉 **[Launch PanelGPT Simulator](https://panel-gpt.vercel.app/)**
 
 ---
 
