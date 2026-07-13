@@ -11,7 +11,7 @@ Built as a Final Year Major Project, it demonstrates modern clean architecture, 
 
 ## 🚀 LIVE DEMO
 You can access the live running application here:
-👉 **[Launch PanelGPT Simulator](YOUR_VERCEL_DEPLOYMENT_URL)**
+👉 **[Launch PanelGPT Simulator](https://vercel.com/lone-macaw/panel-gpt/6wv3VpWnCFMGSTaLrtwNebivft5Q)**
 
 ---
 
